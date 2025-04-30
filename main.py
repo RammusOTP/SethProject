@@ -164,10 +164,10 @@ red_yellow_counts = []
 
 # Plotting sales counts
 red_count, yellow_count, avg, std = plot_sales_counts_flat(
-    sales_counts_all, 
+    sales_counts_all,
     'Sales Count per Day',
     'images/sales_count_per_day_flat.png',
-    mean_sales_all, 
+    mean_sales_all,
     std_sales_all
 )
 red_yellow_ratio = calculate_red_yellow_ratio(red_count, yellow_count)
@@ -221,6 +221,60 @@ red_count, yellow_count, avg, std = plot_sales_counts_rolling(
 )
 red_yellow_ratio = calculate_red_yellow_ratio(red_count, yellow_count)
 red_yellow_counts.append(["Sales Count per Day (TWT With 90-Day Rolling Avg)", red_count, yellow_count, round(red_yellow_ratio, 2), round(avg, 2), round(std, 2)])
+
+# Calculate and plot 7-day rolling average for weekdays
+sales_counts_weekdays = combined_df[combined_df['Day of Week'].isin(weekdays_filtered)].groupby('Date').size().reset_index(name='Sales Count')
+sales_counts_weekdays['7-Day Rolling Mean'] = sales_counts_weekdays['Sales Count'].rolling(window=7).mean().ffill()
+sales_counts_weekdays['7-Day Rolling Std'] = sales_counts_weekdays['Sales Count'].rolling(window=7).std().ffill()
+
+# Function to plot weekdays with 7-day rolling average
+def plot_weekdays_rolling_average(sales_data, title, save_path):
+    plt.figure(figsize=(12, 6))
+    bar_colors = []
+    red_bar_count = 0
+    yellow_bar_count = 0
+
+    # Color bars based on 7-day rolling statistics
+    for index, row in sales_data.iterrows():
+        count = row['Sales Count']
+        rolling_mean = row['7-Day Rolling Mean']
+        rolling_std = row['7-Day Rolling Std']
+
+        if count > rolling_mean + rolling_std or count < rolling_mean - rolling_std:
+            bar_colors.append('#e0301e')  # Red
+            red_bar_count += 1
+        else:
+            bar_colors.append('#ffb600')  # Yellow
+            yellow_bar_count += 1
+
+    plt.bar(sales_data['Date'], sales_data['Sales Count'], color=bar_colors, alpha=0.6, label='Sales Count')
+    plt.plot(sales_data['Date'], sales_data['7-Day Rolling Mean'], color='#9013fe', label='7-Day Rolling Mean', linewidth=2)
+    plt.fill_between(sales_data['Date'],
+                     sales_data['7-Day Rolling Mean'] + sales_data['7-Day Rolling Std'],
+                     sales_data['7-Day Rolling Mean'] - sales_data['7-Day Rolling Std'],
+                     color='gray', alpha=0.2, label='7-Day Rolling Std Dev')
+
+    plt.xticks(rotation=45, ha='right')
+    plt.xlabel('Date', fontsize=14)
+    plt.ylabel('Sales Count', fontsize=14)
+    plt.title(title, fontsize=16)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(save_path, format='png')
+    plt.close()
+
+    return red_bar_count, yellow_bar_count  # Return counts
+
+# Create a plot for the weekdays rolling average and collect red/yellow counts
+red_count, yellow_count = plot_weekdays_rolling_average(
+    sales_counts_weekdays,
+    'Sales Count per Day (Weekdays Only) with 7-Day Rolling Average',
+    'images/sales_count_weekdays_7day_rolling_avg.png'
+)
+red_yellow_ratio = calculate_red_yellow_ratio(red_count, yellow_count)
+red_yellow_counts.append(["Sales Count per Day (Weekdays Only) with 7-Day Rolling Average",
+                          red_count, yellow_count, round(red_yellow_ratio, 2)])
 
 # Function to plot sales distribution with KDE
 def plot_sales_distribution_with_kde(data, title, save_path):
